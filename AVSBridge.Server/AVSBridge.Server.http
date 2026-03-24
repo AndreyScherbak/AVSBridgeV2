@@ -1,0 +1,6 @@
+@AVSBridge.Server_HostAddress = http://localhost:5047
+
+GET {{AVSBridge.Server_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

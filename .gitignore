@@ -1,0 +1,30 @@
+# Reference-only folders — never modify or commit
+Legacy_Project/
+Telegram_Info/
+
+# .NET build outputs
+bin/
+obj/
+publish/
+
+# IDE / editor
+.vs/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# NuGet
+*.nupkg
+**/packages/
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Rider
+.idea/
+
+# Logs
+*.log

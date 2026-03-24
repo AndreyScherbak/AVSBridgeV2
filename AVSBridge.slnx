@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="AVSBridge.Client/AVSBridge.Client.csproj" />
+  <Project Path="AVSBridge.Server/AVSBridge.Server.csproj" />
+  <Project Path="AVSBridge.Shared/AVSBridge.Shared.csproj" />
+  <Project Path="AVSBridge.Tests/AVSBridge.Tests.csproj" />
+</Solution>
