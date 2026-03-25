@@ -1,0 +1,36 @@
+@using AVSBridge.Client.Helpers
+@using AVSBridge.Shared.DTOs
+@using AVSBridge.Shared.Models
+
+<div class="player-panel @(IsCurrentTurn ? "active-turn" : "") @(Player.IsEliminated ? "eliminated" : "")">
+    <div class="player-info">
+        <span class="player-name" title="@Player.Name">
+            @Player.Name
+            @if (IsYou)
+            {
+                <span class="you-badge">(ви / you)</span>
+            }
+        </span>
+        <span class="player-score" title="Рахунок / Score">
+            @Player.Score очок
+        </span>
+    </div>
+    <div class="player-cards-count">
+        <img src="@CardImageHelper.CardBack" alt="cards" class="mini-card-back" />
+        <span class="card-count">×@Player.CardCount</span>
+    </div>
+    @if (IsCurrentTurn)
+    {
+        <div class="turn-indicator">⏳</div>
+    }
+    @if (Player.IsEliminated)
+    {
+        <div class="eliminated-badge">❌</div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public PlayerDto Player { get; set; } = default!;
+    [Parameter] public bool IsCurrentTurn { get; set; }
+    [Parameter] public bool IsYou { get; set; }
+}

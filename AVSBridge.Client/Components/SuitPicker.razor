@@ -1,0 +1,28 @@
+@using AVSBridge.Client.Helpers
+@using AVSBridge.Shared.Models
+
+<div class="suit-picker-overlay">
+    <div class="suit-picker">
+        <h4>Оберіть масть / Choose suit</h4>
+        <div class="suit-options">
+            @foreach (var suit in Enum.GetValues<Suit>())
+            {
+                <button class="suit-btn" style="color: @CardImageHelper.GetSuitColor(suit)"
+                        @onclick="() => SelectSuit(suit)">
+                    <span class="suit-symbol">@CardImageHelper.GetSuitSymbol(suit)</span>
+                    <span class="suit-name">@suit</span>
+                </button>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public EventCallback<Suit> OnSuitSelected { get; set; }
+
+    private async Task SelectSuit(Suit suit)
+    {
+        if (OnSuitSelected.HasDelegate)
+            await OnSuitSelected.InvokeAsync(suit);
+    }
+}

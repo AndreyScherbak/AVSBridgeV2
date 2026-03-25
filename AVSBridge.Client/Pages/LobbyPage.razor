@@ -1,0 +1,149 @@
+@page "/"
+@using AVSBridge.Client.Services
+@inject GameHubService Hub
+@inject NavigationManager Nav
+
+<div class="lobby-container">
+    <div class="lobby-card">
+        <h1 class="lobby-title">🃏 AVS Bridge</h1>
+        <p class="lobby-subtitle">Карткова гра для 2–10 гравців / Card game for 2–10 players</p>
+
+        @if (!string.IsNullOrEmpty(_errorMessage))
+        {
+            <div class="alert alert-danger">@_errorMessage</div>
+        }
+
+        @if (!_isConnecting && !_isInRoom)
+        {
+            <div class="lobby-form">
+                <div class="form-group">
+                    <label for="playerName">Ваше ім'я / Your name</label>
+                    <input id="playerName" type="text" class="form-control" maxlength="20"
+                           @bind="_playerName" @bind:event="oninput"
+                           placeholder="Введіть ім'я..." />
+                </div>
+
+                <div class="lobby-actions">
+                    <button class="btn btn-primary btn-lg" @onclick="CreateRoom"
+                            disabled="@(!CanAct)">
+                        🎮 Створити кімнату / Create Room
+                    </button>
+
+                    <div class="divider"><span>або / or</span></div>
+
+                    <div class="join-row">
+                        <input type="text" class="form-control room-code-input" maxlength="6"
+                               @bind="_joinCode" @bind:event="oninput"
+                               placeholder="Код кімнати / Room code"
+                               style="text-transform: uppercase;" />
+                        <button class="btn btn-success btn-lg" @onclick="JoinRoom"
+                                disabled="@(!CanJoin)">
+                            🚪 Приєднатися / Join
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+        else if (_isConnecting)
+        {
+            <div class="connecting-spinner">
+                <div class="spinner-border text-primary" role="status"></div>
+                <p>З'єднання... / Connecting...</p>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private string _playerName = "";
+    private string _joinCode = "";
+    private string? _errorMessage;
+    private bool _isConnecting;
+    private bool _isInRoom;
+
+    private bool CanAct => !string.IsNullOrWhiteSpace(_playerName) && !_isConnecting;
+    private bool CanJoin => CanAct && _joinCode.Trim().Length >= 4;
+
+    protected override void OnInitialized()
+    {
+        Hub.OnRoomJoined += HandleRoomJoined;
+        Hub.OnError += HandleError;
+    }
+
+    private async Task EnsureConnected()
+    {
+        if (!Hub.IsConnected)
+        {
+            _isConnecting = true;
+            _errorMessage = null;
+            StateHasChanged();
+
+            try
+            {
+                var baseUri = Nav.BaseUri.TrimEnd('/');
+                await Hub.ConnectAsync($"{baseUri}/gamehub");
+            }
+            catch (Exception ex)
+            {
+                _errorMessage = $"Не вдалося з'єднатися / Connection failed: {ex.Message}";
+                _isConnecting = false;
+                return;
+            }
+        }
+    }
+
+    private async Task CreateRoom()
+    {
+        await EnsureConnected();
+        if (!Hub.IsConnected) return;
+
+        try
+        {
+            _isConnecting = true;
+            StateHasChanged();
+            await Hub.CreateRoomAsync(_playerName.Trim());
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+            _isConnecting = false;
+        }
+    }
+
+    private async Task JoinRoom()
+    {
+        await EnsureConnected();
+        if (!Hub.IsConnected) return;
+
+        try
+        {
+            _isConnecting = true;
+            StateHasChanged();
+            await Hub.JoinRoomAsync(_joinCode.Trim().ToUpperInvariant(), _playerName.Trim());
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+            _isConnecting = false;
+        }
+    }
+
+    private void HandleRoomJoined(string roomCode, string playerId)
+    {
+        _isInRoom = true;
+        InvokeAsync(() => Nav.NavigateTo($"/game/{roomCode}"));
+    }
+
+    private void HandleError(string message)
+    {
+        _errorMessage = message;
+        _isConnecting = false;
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        Hub.OnRoomJoined -= HandleRoomJoined;
+        Hub.OnError -= HandleError;
+    }
+}

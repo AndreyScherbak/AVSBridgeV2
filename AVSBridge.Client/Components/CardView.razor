@@ -1,0 +1,30 @@
+@using AVSBridge.Client.Helpers
+@using AVSBridge.Shared.Models
+
+<div class="card-view @(IsSelected ? "selected" : "") @(IsClickable ? "clickable" : "") @(IsFaceDown ? "face-down" : "")"
+     @onclick="HandleClick"
+     title="@(IsFaceDown ? "" : CardImageHelper.GetCardDisplayName(Card!))">
+    <img src="@ImagePath" alt="@AltText" draggable="false" />
+</div>
+
+@code {
+    [Parameter] public IPlayableCard? Card { get; set; }
+    [Parameter] public bool IsSelected { get; set; }
+    [Parameter] public bool IsClickable { get; set; }
+    [Parameter] public bool IsFaceDown { get; set; }
+    [Parameter] public EventCallback OnClicked { get; set; }
+
+    private string ImagePath => IsFaceDown || Card is null
+        ? CardImageHelper.CardBack
+        : CardImageHelper.GetImagePath(Card);
+
+    private string AltText => IsFaceDown || Card is null
+        ? "Card back"
+        : CardImageHelper.GetCardDisplayName(Card);
+
+    private async Task HandleClick()
+    {
+        if (IsClickable && OnClicked.HasDelegate)
+            await OnClicked.InvokeAsync();
+    }
+}

@@ -32,8 +32,15 @@ var app = builder.Build();
 // ── Middleware ──
 app.UseCors();
 
+// Serve Blazor WASM client static files
+app.UseBlazorFrameworkFiles();
+app.UseStaticFiles();
+
 // ── Endpoints ──
 app.MapHub<GameHub>("/gamehub");
+
+// Fallback to index.html for client-side routing
+app.MapFallbackToFile("index.html");
 
 app.Run();
 
