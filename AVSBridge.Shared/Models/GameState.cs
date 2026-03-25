@@ -42,6 +42,24 @@ public sealed class GameState
     /// <summary>Index of the player who is the dealer this round.</summary>
     public int DealerIndex { get; set; }
 
+    /// <summary>True when PendingDraws includes +6 from King of Hearts (cancellable by any King).</summary>
+    public bool KingOfHeartsActive { get; set; }
+
+    /// <summary>True when pending skips come from 7s (draw 1), false when from Aces (no draw).</summary>
+    public bool SkipRequiresDraw { get; set; }
+
+    /// <summary>True when the current player must cover an 8 they just played.</summary>
+    public bool AwaitingEightCover { get; set; }
+
+    /// <summary>True when the current player must discard a card (9 effect).</summary>
+    public bool AwaitingNineDiscard { get; set; }
+
+    /// <summary>True when the current player has drawn a card this turn and may play it or pass.</summary>
+    public bool HasDrawnThisTurn { get; set; }
+
+    /// <summary>True during dealer's optional cover phase after dealing.</summary>
+    public bool IsDealerCoverPhase { get; set; }
+
     // --- Helpers ---
 
     public Player CurrentPlayer => Players[CurrentPlayerIndex];
