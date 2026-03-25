@@ -101,8 +101,9 @@ public sealed class GameEngine
     // ────────────────────────────────────────────
 
     /// <summary>
-    /// Play one card from the player's hand. Validates the move, applies effects,
-    /// checks end-of-round conditions, and advances the turn.
+    /// Play one or more cards of the same rank from the player's hand.
+    /// The first card must be playable on the table; subsequent cards must share its rank.
+    /// Effects stack (e.g., two 6s = +4 draws).
     /// </summary>
     public List<IGameEvent> PlayCards(GameState state, string playerId, List<IPlayableCard> cards)
     {
@@ -121,73 +122,90 @@ public sealed class GameEngine
         if (state.AwaitingNineDiscard)
             return DiscardCard(state, player.Id, cards[0]);
 
-        var card = cards[0];
+        var firstCard = cards[0];
 
-        // Card must be in hand
-        if (!player.Hand.Contains(card))
-            throw new InvalidOperationException($"Card {card} is not in player's hand.");
+        // All cards must be in hand
+        foreach (var c in cards)
+        {
+            if (!player.Hand.Contains(c))
+                throw new InvalidOperationException($"Card {c} is not in player's hand.");
+        }
+
+        // Multi-card: all must share same rank (or all be Jokers)
+        if (cards.Count > 1)
+        {
+            bool allSameRank = cards.All(c => c is Card) && cards.Cast<Card>().Select(c => c.Rank).Distinct().Count() == 1;
+            bool allJokers = cards.All(c => c is JokerCard);
+            if (!allSameRank && !allJokers)
+                throw new InvalidOperationException("All cards in a multi-card play must be the same rank.");
+        }
 
         // ── Dealer cover phase: only same-rank cards allowed ──
         if (state.IsDealerCoverPhase)
         {
             var topCard = state.TopTableCard!;
-            if (!SameRankAs(card, topCard))
+            if (!SameRankAs(firstCard, topCard))
                 throw new InvalidOperationException("During dealer cover, must play a card of the same rank.");
 
-            player.Hand.Remove(card);
-            state.TablePile.Add(card);
+            player.Hand.Remove(firstCard);
+            state.TablePile.Add(firstCard);
             state.IsDealerCoverPhase = false;
-            events.Add(new CardPlayed(playerId, [card]));
+            events.Add(new CardPlayed(playerId, [firstCard]));
 
-            // Dealer Jack Exception: if dealer covers a Jack with another Jack, they may declare suit
-            if (card is Card { Rank: Rank.Jack })
-            {
-                // Wait for DeclareJackSuit; don't advance turn yet
+            if (firstCard is Card { Rank: Rank.Jack })
                 return events;
-            }
 
             state.CurrentPlayerIndex = GetNextActivePlayerIndex(state, state.DealerIndex);
             events.Add(new TurnChanged(state.CurrentPlayer.Id));
             return events;
         }
 
-        // ── Pending-effect restrictions ──
-        ValidatePendingEffectRestrictions(state, card);
+        // ── Pending-effect restrictions (check first card) ──
+        ValidatePendingEffectRestrictions(state, firstCard);
 
-        // ── Standard validation ──
+        // ── Standard validation (first card must play on top) ──
         var top = state.TopTableCard!;
-        if (!card.CanPlayOn(top, state.DeclaredSuit))
-            throw new InvalidOperationException($"Card {card} cannot be played on {top}.");
+        if (!firstCard.CanPlayOn(top, state.DeclaredSuit))
+            throw new InvalidOperationException($"Card {firstCard} cannot be played on {top}.");
 
-        // Play the card
-        player.Hand.Remove(card);
-        state.TablePile.Add(card);
+        // Play all cards in sequence
+        var playedCards = new List<IPlayableCard>();
+        IPlayableCard lastCard = firstCard;
+
+        foreach (var card in cards)
+        {
+            player.Hand.Remove(card);
+            state.TablePile.Add(card);
+            playedCards.Add(card);
+            lastCard = card;
+        }
+
         state.DeclaredSuit = null;
         state.IsUgolovshchina = false;
         state.HasDrawnThisTurn = false;
-        events.Add(new CardPlayed(playerId, [card]));
+        events.Add(new CardPlayed(playerId, playedCards));
 
         // ── Cancel King-of-Hearts if a King covers it ──
-        if (state.KingOfHeartsActive && card is Card { Rank: Rank.King })
+        if (state.KingOfHeartsActive && lastCard is Card { Rank: Rank.King })
         {
             state.PendingDraws -= 6;
             if (state.PendingDraws < 0) state.PendingDraws = 0;
             state.KingOfHeartsActive = false;
         }
 
-        // Apply card effect
-        ApplyCardEffect(state, player, card, events);
+        // Apply effects for each card played
+        foreach (var card in cards)
+        {
+            ApplyCardEffect(state, player, card, events);
+        }
 
         // Hand empty → round ends (unless awaiting 8 cover, 9 discard, or Jack declaration)
         if (player.Hand.Count == 0
             && !state.AwaitingEightCover
             && !state.AwaitingNineDiscard)
         {
-            if (card is Card { Rank: Rank.Jack })
-            {
-                // Still need suit declaration, but round will end after that
-                return events;
-            }
+            if (lastCard is Card { Rank: Rank.Jack })
+                return events; // Still need suit declaration
             return EndRound(state, player.Id, events);
         }
 
@@ -201,7 +219,7 @@ public sealed class GameEngine
         // Advance turn unless awaiting a follow-up action
         if (!state.AwaitingEightCover
             && !state.AwaitingNineDiscard
-            && card is not Card { Rank: Rank.Jack }) // Jack waits for DeclareJackSuit
+            && lastCard is not Card { Rank: Rank.Jack })
         {
             AdvanceTurn(state, events);
         }
@@ -214,8 +232,8 @@ public sealed class GameEngine
     // ────────────────────────────────────────────
 
     /// <summary>
-    /// Draw cards. Handles: forced draws (6 / KoH penalties), skip acceptance (7 / Ace),
-    /// and voluntary single-card draw (no playable card).
+    /// Draw a single card voluntarily (no playable card in hand).
+    /// Penalties and skips are handled by AcceptPenalty instead.
     /// </summary>
     public List<IGameEvent> DrawCard(GameState state, string playerId)
     {
@@ -224,6 +242,39 @@ public sealed class GameEngine
             throw new InvalidOperationException("Must complete pending action first.");
         if (state.HasDrawnThisTurn)
             throw new InvalidOperationException("Already drew a card this turn.");
+        if (state.PendingDraws > 0 || state.SkipCount > 0)
+            throw new InvalidOperationException("Must accept or counter the pending penalty first.");
+
+        var player = state.CurrentPlayer;
+        var events = new List<IGameEvent>();
+
+        // ── Voluntary draw ──
+        var drawn = DrawCardsFromPile(state, player, 1, events);
+        if (drawn.Count > 0 && drawn[0].CanPlayOn(state.TopTableCard!, state.DeclaredSuit))
+        {
+            // Drawn card is playable — player may play it or pass
+            state.HasDrawnThisTurn = true;
+        }
+        else
+        {
+            AdvanceTurn(state, events);
+        }
+
+        return events;
+    }
+
+    // ────────────────────────────────────────────
+    //  AcceptPenalty
+    // ────────────────────────────────────────────
+
+    /// <summary>
+    /// Accept a pending penalty: draw cards for 6/KoH, or accept skip for 7/Ace.
+    /// For 6/KoH: draws penalty cards but does NOT end the player's turn — they continue playing.
+    /// For 7/Ace: skips the turn (draws 1 for 7) and advances to next player.
+    /// </summary>
+    public List<IGameEvent> AcceptPenalty(GameState state, string playerId)
+    {
+        ValidateTurn(state, playerId);
 
         var player = state.CurrentPlayer;
         var events = new List<IGameEvent>();
@@ -247,23 +298,11 @@ public sealed class GameEngine
             DrawCardsFromPile(state, player, count, events);
             state.PendingDraws = 0;
             state.KingOfHeartsActive = false;
-            AdvanceTurn(state, events);
+            // Player keeps their turn — they can now play or draw voluntarily
             return events;
         }
 
-        // ── Voluntary draw ──
-        var drawn = DrawCardsFromPile(state, player, 1, events);
-        if (drawn.Count > 0 && drawn[0].CanPlayOn(state.TopTableCard!, state.DeclaredSuit))
-        {
-            // Drawn card is playable — player may play it or pass
-            state.HasDrawnThisTurn = true;
-        }
-        else
-        {
-            AdvanceTurn(state, events);
-        }
-
-        return events;
+        throw new InvalidOperationException("No pending penalty to accept.");
     }
 
     // ────────────────────────────────────────────
@@ -345,6 +384,34 @@ public sealed class GameEngine
         var events = new List<IGameEvent>();
         AdvanceTurn(state, events);
         return events;
+    }
+
+    // ────────────────────────────────────────────
+    //  StartNewRound
+    // ────────────────────────────────────────────
+
+    /// <summary>
+    /// Start a new round within the same room. Preserves player scores,
+    /// rotates the dealer, and re-deals cards.
+    /// </summary>
+    public List<IGameEvent> StartNewRound(GameState state, Random? rng = null)
+    {
+        if (state.Phase != GamePhase.RoundOver)
+            throw new InvalidOperationException("Can only start a new round after a round ends.");
+
+        // Remove eliminated players, keep scores
+        state.Players.RemoveAll(p => p.IsEliminated);
+
+        if (state.Players.Count < 2)
+            throw new InvalidOperationException("Need at least 2 active players to start a new round.");
+
+        // Rotate dealer
+        state.DealerIndex = (state.DealerIndex + 1) % state.Players.Count;
+
+        // Reset to waiting phase so DealCards can run
+        state.Phase = GamePhase.WaitingForPlayers;
+
+        return DealCards(state, rng);
     }
 
     // ────────────────────────────────────────────

@@ -11,5 +11,6 @@ builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.
 
 // GameHubService is scoped (one per user session in WASM = effectively singleton)
 builder.Services.AddScoped<GameHubService>();
+builder.Services.AddScoped<LocalizationService>();
 
 await builder.Build().RunAsync();

@@ -326,17 +326,20 @@ public class GameEngineTests
     }
 
     [Fact]
-    public void DrawCard_WithPendingDraws_DrawsAll()
+    public void AcceptPenalty_WithPendingDraws_DrawsAllAndKeepsTurn()
     {
         var top = new Card(Suit.Hearts, Rank.Six);
         var state = CreateInProgressState(top, p0Hand: [new Card(Suit.Diamonds, Rank.Two)]);
         state.PendingDraws = 4;
 
-        _engine.DrawCard(state, "p0");
+        var events = _engine.AcceptPenalty(state, "p0");
 
         // Player drew 4 cards: had 1 + drew 4 = 5
         Assert.Equal(5, state.Players[0].Hand.Count);
         Assert.Equal(0, state.PendingDraws);
+        // Turn should NOT advance — player keeps their turn after accepting 6 penalty
+        Assert.Equal(0, state.CurrentPlayerIndex);
+        Assert.DoesNotContain(events, e => e is TurnChanged);
     }
 
     // ────────────────────────────────────────────
@@ -358,7 +361,7 @@ public class GameEngineTests
     }
 
     [Fact]
-    public void DrawCard_WithSkipFromSeven_DrawsOneAndSkips()
+    public void AcceptPenalty_WithSkipFromSeven_DrawsOneAndSkips()
     {
         var top = new Card(Suit.Hearts, Rank.Seven);
         var state = CreateInProgressState(top);
@@ -367,7 +370,7 @@ public class GameEngineTests
         state.CurrentPlayerIndex = 1; // Bob's turn
 
         int handBefore = state.Players[1].Hand.Count;
-        var events = _engine.DrawCard(state, "p1");
+        var events = _engine.AcceptPenalty(state, "p1");
 
         Assert.Equal(handBefore + 1, state.Players[1].Hand.Count);
         Assert.Equal(0, state.SkipCount);
@@ -483,7 +486,7 @@ public class GameEngineTests
     }
 
     [Fact]
-    public void DrawCard_WithAceSkip_SkipsWithoutDrawing()
+    public void AcceptPenalty_WithAceSkip_SkipsWithoutDrawing()
     {
         var top = new Card(Suit.Hearts, Rank.Ace);
         var state = CreateInProgressState(top);
@@ -492,7 +495,7 @@ public class GameEngineTests
         state.CurrentPlayerIndex = 1;
 
         int handBefore = state.Players[1].Hand.Count;
-        var events = _engine.DrawCard(state, "p1");
+        var events = _engine.AcceptPenalty(state, "p1");
 
         Assert.Equal(handBefore, state.Players[1].Hand.Count); // no card drawn
         Assert.Equal(0, state.SkipCount);

@@ -102,6 +102,19 @@ public sealed class GameHub : Hub
         await ExecuteGameAction(roomCode, state => _engine.DiscardCard(state, playerId, card));
     }
 
+    /// <summary>Accept a pending penalty (draw for 6/KoH, skip for 7/Ace).</summary>
+    public async Task AcceptPenalty(string roomCode)
+    {
+        var playerId = GetPlayerId();
+        await ExecuteGameAction(roomCode, state => _engine.AcceptPenalty(state, playerId));
+    }
+
+    /// <summary>Start a new round, preserving scores.</summary>
+    public async Task StartNewRound(string roomCode)
+    {
+        await ExecuteGameAction(roomCode, state => _engine.StartNewRound(state));
+    }
+
     /// <summary>Pass turn after having drawn a card that could be played.</summary>
     public async Task PassTurn(string roomCode)
     {

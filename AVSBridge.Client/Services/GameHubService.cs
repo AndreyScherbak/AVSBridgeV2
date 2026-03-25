@@ -136,6 +136,18 @@ public sealed class GameHubService : IAsyncDisposable
         await _connection!.InvokeAsync("DrawCard", RoomCode);
     }
 
+    public async Task AcceptPenaltyAsync()
+    {
+        EnsureConnected();
+        await _connection!.InvokeAsync("AcceptPenalty", RoomCode);
+    }
+
+    public async Task StartNewRoundAsync()
+    {
+        EnsureConnected();
+        await _connection!.InvokeAsync("StartNewRound", RoomCode);
+    }
+
     public async Task DeclareJackSuitAsync(Suit suit)
     {
         EnsureConnected();

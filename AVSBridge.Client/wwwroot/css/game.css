@@ -678,6 +678,39 @@ body {
     to { transform: rotate(360deg); }
 }
 
+/* ── Language toggle ── */
+
+.btn-lang {
+    background: var(--bg-card);
+    color: var(--gold);
+    border: 2px solid var(--gold);
+    border-radius: 8px;
+    padding: 4px 14px;
+    font-weight: bold;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: var(--transition);
+    margin-left: auto;
+}
+
+.btn-lang:hover {
+    background: var(--gold);
+    color: var(--bg-dark);
+}
+
+.lang-toggle-row {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 12px;
+}
+
+/* ── Round over button ── */
+
+.round-over-btn {
+    margin-top: 24px;
+    padding: 14px 32px !important;
+}
+
 /* ── Responsive ── */
 
 @media (max-width: 600px) {

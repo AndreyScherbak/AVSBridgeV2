@@ -5,13 +5,14 @@
 @using AVSBridge.Shared.DTOs
 @using AVSBridge.Shared.Models
 @inject GameHubService Hub
+@inject LocalizationService L
 @inject NavigationManager Nav
 @implements IDisposable
 
 <div class="game-container">
-    @* ── Top bar: room info & status ── *@
+    @* ── Top bar ── *@
     <div class="game-top-bar">
-        <span class="room-code">Кімната / Room: <strong>@RoomCode</strong></span>
+        <span class="room-code">@L["game.room"]: <strong>@RoomCode</strong></span>
         @if (_gameState is not null)
         {
             <span class="phase-badge phase-@_gameState.Phase.ToString().ToLower()">
@@ -19,19 +20,20 @@
             </span>
             @if (_gameState.DeckFlipMultiplier > 1)
             {
-                <span class="multiplier-badge">×@_gameState.DeckFlipMultiplier очки / points</span>
+                <span class="multiplier-badge">×@_gameState.DeckFlipMultiplier @L["game.points"]</span>
             }
         }
         @if (!string.IsNullOrEmpty(_statusMessage))
         {
             <span class="status-msg">@_statusMessage</span>
         }
+        <button class="btn-lang" @onclick="L.Toggle">@L["lang.switch"]</button>
     </div>
 
     @if (!string.IsNullOrEmpty(_errorMessage))
     {
         <div class="alert alert-danger game-alert" @onclick="() => _errorMessage = null">
-            @_errorMessage <small>(натисніть щоб закрити / click to dismiss)</small>
+            @_errorMessage <small>(@L["game.clickDismiss"])</small>
         </div>
     }
 
@@ -39,14 +41,14 @@
     {
         <div class="connecting-spinner">
             <div class="spinner-border text-light" role="status"></div>
-            <p>Завантаження... / Loading...</p>
+            <p>@L["game.loading"]</p>
         </div>
     }
     else if (_gameState.Phase == GamePhase.WaitingForPlayers)
     {
         @* ── Waiting lobby ── *@
         <div class="waiting-lobby">
-            <h2>Очікування гравців / Waiting for players</h2>
+            <h2>@L["waiting.title"]</h2>
             <div class="player-list-lobby">
                 @foreach (var p in _gameState.Players)
                 {
@@ -54,25 +56,25 @@
                         🎮 @p.Name
                         @if (p.Id == Hub.PlayerId)
                         {
-                            <span class="you-badge">(ви / you)</span>
+                            <span class="you-badge">(@L["game.you"])</span>
                         }
                     </div>
                 }
             </div>
-            <p class="player-count">@_gameState.Players.Count / 10 гравців / players</p>
+            <p class="player-count">@_gameState.Players.Count / 10 @L["waiting.players"]</p>
             @if (IsHost && _gameState.Players.Count >= 2)
             {
                 <button class="btn btn-success btn-lg" @onclick="StartGame">
-                    ▶️ Почати гру / Start Game
+                    @L["waiting.startGame"]
                 </button>
             }
             else if (IsHost)
             {
-                <p class="hint">Потрібно мінімум 2 гравці / Need at least 2 players</p>
+                <p class="hint">@L["waiting.needPlayers"]</p>
             }
             else
             {
-                <p class="hint">Очікуйте початку гри від хоста / Waiting for host to start</p>
+                <p class="hint">@L["waiting.waitHost"]</p>
             }
         </div>
     }
@@ -80,7 +82,7 @@
     {
         @* ── Game board ── *@
         <div class="game-board">
-            @* ── Other players (top area) ── *@
+            @* ── Opponents ── *@
             <div class="opponents-area">
                 @foreach (var p in _gameState.Players.Where(p => p.Id != Hub.PlayerId))
                 {
@@ -90,9 +92,9 @@
                 }
             </div>
 
-            @* ── Table center: pile + draw + declared suit ── *@
+            @* ── Table center ── *@
             <div class="table-center">
-                <div class="draw-pile" title="Колода / Draw pile (@_gameState.DrawPileCount карт / cards)">
+                <div class="draw-pile" title="@L["game.drawPile"] (@_gameState.DrawPileCount @L["game.cards"])">
                     <CardView IsFaceDown="true" />
                     <span class="pile-count">@_gameState.DrawPileCount</span>
                 </div>
@@ -107,7 +109,7 @@
                 @if (_gameState.DeclaredSuit.HasValue)
                 {
                     <div class="declared-suit" style="color: @CardImageHelper.GetSuitColor(_gameState.DeclaredSuit.Value)">
-                        <span class="declared-label">Масть / Suit:</span>
+                        <span class="declared-label">@L["game.suit"]:</span>
                         <span class="declared-symbol">@CardImageHelper.GetSuitSymbol(_gameState.DeclaredSuit.Value)</span>
                         @if (_gameState.IsUgolovshchina)
                         {
@@ -118,15 +120,15 @@
 
                 @if (_gameState.PendingDraws > 0)
                 {
-                    <div class="pending-info pending-draws">+@_gameState.PendingDraws карт / cards</div>
+                    <div class="pending-info pending-draws">+@_gameState.PendingDraws @L["event.penaltyCards"]</div>
                 }
                 @if (_gameState.SkipCount > 0)
                 {
-                    <div class="pending-info pending-skips">⏭ @_gameState.SkipCount пропуск(ів) / skip(s)</div>
+                    <div class="pending-info pending-skips">⏭ @_gameState.SkipCount @L["event.skips"]</div>
                 }
             </div>
 
-            @* ── Current player info ── *@
+            @* ── Turn info ── *@
             <div class="turn-info">
                 @{
                     var currentPlayer = _gameState.Players.FirstOrDefault(p => p.Id == _gameState.CurrentPlayerId);
@@ -134,8 +136,8 @@
                 @if (currentPlayer is not null)
                 {
                     <span>
-                        Хід: @currentPlayer.Name
-                        @if (IsMyTurn) { <strong>(ваш хід! / your turn!)</strong> }
+                        @L["game.turn"]: @currentPlayer.Name
+                        @if (IsMyTurn) { <strong>(@L["game.yourTurn"])</strong> }
                     </span>
                 }
             </div>
@@ -146,7 +148,7 @@
                 {
                     <div class="my-info">
                         <span>@_myPlayer.Name</span>
-                        <span class="my-score">Рахунок / Score: @_myPlayer.Score</span>
+                        <span class="my-score">@L["game.score"]: @_myPlayer.Score</span>
                     </div>
                 }
                 <div class="hand-cards">
@@ -169,37 +171,63 @@
             <div class="action-buttons">
                 @if (IsMyTurn)
                 {
-                    @if (_gameState.AwaitingNineDiscard)
+                    @if (HasPendingPenalty)
+                    {
+                        @* Dedicated Accept Penalty button *@
+                        @if (_gameState.PendingDraws > 0)
+                        {
+                            @* Can counter with 6 or King, or accept draw *@
+                            <button class="btn btn-primary" @onclick="PlaySelectedCards"
+                                    disabled="@(!CanPlay)">
+                                @L["action.play"]
+                            </button>
+                            <button class="btn btn-warning" @onclick="AcceptPenalty">
+                                @L["action.acceptDraw"] (+@_gameState.PendingDraws)
+                            </button>
+                        }
+                        else if (_gameState.SkipCount > 0)
+                        {
+                            @* Can counter with matching card, or accept skip *@
+                            <button class="btn btn-primary" @onclick="PlaySelectedCards"
+                                    disabled="@(!CanPlay)">
+                                @L["action.play"]
+                            </button>
+                            <button class="btn btn-warning" @onclick="AcceptPenalty">
+                                @L["action.acceptSkip"]
+                            </button>
+                        }
+                    }
+                    else if (_gameState.AwaitingNineDiscard)
                     {
                         <button class="btn btn-warning" @onclick="DiscardSelectedCard"
                                 disabled="@(_selectedIndices.Count != 1)">
-                            🗑 Скинути / Discard
+                            @L["action.discard"]
                         </button>
                     }
                     else if (_gameState.IsDealerCoverPhase)
                     {
                         <button class="btn btn-primary" @onclick="PlaySelectedCards"
                                 disabled="@(!CanPlay)">
-                            🃏 Покрити / Cover
+                            @L["action.cover"]
                         </button>
                         <button class="btn btn-secondary" @onclick="SkipDealerCover">
-                            ⏩ Пропустити / Skip
+                            @L["action.skip"]
                         </button>
                     }
                     else
                     {
                         <button class="btn btn-primary" @onclick="PlaySelectedCards"
                                 disabled="@(!CanPlay)">
-                            🃏 Грати / Play
+                            @L["action.play"]
                         </button>
                         <button class="btn btn-info" @onclick="DrawCard"
-                                disabled="@(_gameState.HasDrawnThisTurn && !HasPendingForced)">
-                            📥 Тягнути / Draw
+                                disabled="@_gameState.HasDrawnThisTurn">
+                            @L["action.draw"]
                         </button>
                         @if (_gameState.HasDrawnThisTurn)
                         {
                             <button class="btn btn-secondary" @onclick="PassTurn">
-                                ⏩ Пас / Pass
+                                @L["action.pass"]
                             </button>
                         }
                     }
@@ -213,25 +241,41 @@
             <SuitPicker OnSuitSelected="OnSuitSelected" />
         }
 
-        @* ── Round over screen ── *@
+        @* ── Round over / Game over screen ── *@
         @if (_gameState.Phase is GamePhase.RoundOver or GamePhase.GameOver)
         {
             <div class="round-over-overlay">
                 <div class="round-over-card">
-                    <h2>@((_gameState.Phase == GamePhase.GameOver) ? "Гра закінчена! / Game Over!" : "Раунд завершено! / Round Over!")</h2>
+                    <h2>@((_gameState.Phase == GamePhase.GameOver) ? L["gameOver.title"] : L["roundOver.title"])</h2>
                     <table class="scores-table">
-                        <thead><tr><th>Гравець / Player</th><th>Рахунок / Score</th><th>Статус</th></tr></thead>
+                        <thead>
+                            <tr>
+                                <th>@L["roundOver.player"]</th>
+                                <th>@L["roundOver.score"]</th>
+                                <th>@L["roundOver.status"]</th>
+                            </tr>
+                        </thead>
                         <tbody>
                             @foreach (var p in _gameState.Players.OrderBy(p => p.Score))
                             {
                                 <tr class="@(p.IsEliminated ? "eliminated-row" : "")">
-                                    <td>@p.Name @(p.Id == Hub.PlayerId ? "(ви / you)" : "")</td>
+                                    <td>@p.Name @(p.Id == Hub.PlayerId ? $"({L["game.you"]})" : "")</td>
                                     <td>@p.Score</td>
-                                    <td>@(p.IsEliminated ? "❌ Вибув / Eliminated" : "✅")</td>
+                                    <td>@(p.IsEliminated ? $"❌ {L["roundOver.eliminated"]}" : "✅")</td>
                                 </tr>
                             }
                         </tbody>
                     </table>
+                    @if (_gameState.Phase == GamePhase.RoundOver && IsHost)
+                    {
+                        <button class="btn btn-success btn-lg round-over-btn" @onclick="StartNewRound">
+                            @L["action.startNewRound"]
+                        </button>
+                    }
+                    else if (_gameState.Phase == GamePhase.RoundOver)
+                    {
+                        <p class="hint" style="margin-top: 16px;">@L["waiting.waitHost"]</p>
+                    }
                 </div>
             </div>
         }
@@ -253,7 +297,8 @@
     private bool IsHost => _gameState?.Players.FirstOrDefault()?.Id == Hub.PlayerId;
     private bool IsMyTurn => _gameState?.CurrentPlayerId == Hub.PlayerId
                              && _gameState.Phase == GamePhase.InProgress;
-    private bool HasPendingForced => _gameState is not null && (_gameState.PendingDraws > 0 || _gameState.SkipCount > 0);
+    private bool HasPendingPenalty => _gameState is not null
+                                     && (_gameState.PendingDraws > 0 || _gameState.SkipCount > 0);
 
     private bool CanPlay
     {
@@ -264,13 +309,19 @@
 
             var selectedCards = _selectedIndices.OrderBy(i => i).Select(i => _hand.Cards[i]).ToList();
 
-            // Basic client-side validation: first card must be playable on top card
+            // Multi-card: all must be same rank
+            if (selectedCards.Count > 1)
+            {
+                bool allSameRank = selectedCards.All(c => c is Card)
+                    && selectedCards.Cast<Card>().Select(c => c.Rank).Distinct().Count() == 1;
+                bool allJokers = selectedCards.All(c => c is JokerCard);
+                if (!allSameRank && !allJokers) return false;
+            }
+
+            // First card must be playable on top card
             if (_gameState.TopTableCard is not null && selectedCards.Count > 0)
             {
-                var first = selectedCards[0];
-                // When pending draws, only matching 6s or King of Hearts counter allowed
-                // Let server do full validation — just check basic playability
-                return first.CanPlayOn(_gameState.TopTableCard, _gameState.DeclaredSuit);
+                return selectedCards[0].CanPlayOn(_gameState.TopTableCard, _gameState.DeclaredSuit);
             }
             return true;
         }
@@ -280,27 +331,27 @@
     {
         Hub.OnGameStateUpdated += HandleGameStateUpdated;
         Hub.OnError += HandleError;
-        Hub.OnPlayerJoined += name => ShowStatus($"{name} приєднався / joined");
-        Hub.OnPlayerLeft += name => ShowStatus($"{name} вийшов / left");
+        Hub.OnPlayerJoined += name => ShowStatus($"{name} {L["event.joined"]}");
+        Hub.OnPlayerLeft += name => ShowStatus($"{name} {L["event.left"]}");
         Hub.OnSuitDeclared += (suit, ugo) =>
         {
-            var msg = $"Масть / Suit: {CardImageHelper.GetSuitSymbol(suit)}";
+            var msg = $"{L["game.suit"]}: {CardImageHelper.GetSuitSymbol(suit)}";
             if (ugo) msg += " по уголовщині!";
             ShowStatus(msg);
         };
-        Hub.OnDeckReshuffled += mult => ShowStatus($"Колоду перемішано / Deck reshuffled! ×{mult}");
-        Hub.OnJokerCancelled += _ => ShowStatus("Джокер скасовано / Joker cancelled!");
-        Hub.OnConsecutiveQueensRoundEnd += () => ShowStatus("4 Дами! Раунд закінчено / 4 Queens! Round ends!");
+        Hub.OnDeckReshuffled += mult => ShowStatus($"{L["event.deckReshuffled"]} ×{mult}");
+        Hub.OnJokerCancelled += _ => ShowStatus(L["event.jokerCancelled"]);
+        Hub.OnConsecutiveQueensRoundEnd += () => ShowStatus(L["event.queensRoundEnd"]);
         Hub.OnPlayerEliminated += id =>
         {
             var name = _gameState?.Players.FirstOrDefault(p => p.Id == id)?.Name ?? id;
-            ShowStatus($"{name} вибув / eliminated!");
+            ShowStatus($"{name} {L["event.eliminated"]}");
         };
+        L.OnLanguageChanged += () => InvokeAsync(StateHasChanged);
     }
 
     protected override async Task OnParametersSetAsync()
     {
-        // If navigated directly to /game/{code} but not connected, redirect to lobby
         if (!Hub.IsConnected || Hub.RoomCode != RoomCode)
         {
             Nav.NavigateTo("/");
@@ -312,7 +363,6 @@
         _gameState = state;
         _hand = hand;
         _myPlayer = state.Players.FirstOrDefault(p => p.Id == Hub.PlayerId);
-        // Clear selection when state updates (new turn, cards changed)
         _selectedIndices.Clear();
         InvokeAsync(StateHasChanged);
     }
@@ -355,8 +405,6 @@
         if (_hand is null || _selectedIndices.Count == 0) return;
 
         var cards = _selectedIndices.OrderBy(i => i).Select(i => _hand.Cards[i]).ToList();
-
-        // Check if any card is a Jack — will need suit declaration
         var hasJack = cards.Any(c => c is Card { Rank: Rank.Jack });
 
         try
@@ -365,7 +413,7 @@
             {
                 _pendingJackCards = cards;
                 _showSuitPicker = true;
-                return; // Wait for suit selection before sending
+                return;
             }
 
             await Hub.PlayCardsAsync(cards);
@@ -384,7 +432,6 @@
             {
                 await Hub.PlayCardsAsync(_pendingJackCards);
                 _pendingJackCards = null;
-                // After playing Jack, declare suit
                 await Hub.DeclareJackSuitAsync(suit);
             }
             _selectedIndices.Clear();
@@ -395,6 +442,12 @@
     private async Task DrawCard()
     {
         try { await Hub.DrawCardAsync(); }
+        catch (Exception ex) { _errorMessage = ex.Message; }
+    }
+
+    private async Task AcceptPenalty()
+    {
+        try { await Hub.AcceptPenaltyAsync(); }
         catch (Exception ex) { _errorMessage = ex.Message; }
     }
 
@@ -422,13 +475,19 @@
         catch (Exception ex) { _errorMessage = ex.Message; }
     }
 
-    private static string GetPhaseText(GamePhase phase) => phase switch
+    private async Task StartNewRound()
     {
-        GamePhase.WaitingForPlayers => "Очікування / Waiting",
-        GamePhase.Dealing => "Роздача / Dealing",
-        GamePhase.InProgress => "Гра / In Progress",
-        GamePhase.RoundOver => "Раунд завершено / Round Over",
-        GamePhase.GameOver => "Гра закінчена / Game Over",
+        try { await Hub.StartNewRoundAsync(); }
+        catch (Exception ex) { _errorMessage = ex.Message; }
+    }
+
+    private string GetPhaseText(GamePhase phase) => phase switch
+    {
+        GamePhase.WaitingForPlayers => L["phase.waiting"],
+        GamePhase.Dealing => L["phase.dealing"],
+        GamePhase.InProgress => L["phase.inProgress"],
+        GamePhase.RoundOver => L["phase.roundOver"],
+        GamePhase.GameOver => L["phase.gameOver"],
         _ => phase.ToString()
     };
 

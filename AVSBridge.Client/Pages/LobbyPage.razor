@@ -1,12 +1,18 @@
 @page "/"
 @using AVSBridge.Client.Services
 @inject GameHubService Hub
+@inject LocalizationService L
 @inject NavigationManager Nav
+@implements IDisposable
 
 <div class="lobby-container">
     <div class="lobby-card">
-        <h1 class="lobby-title">🃏 AVS Bridge</h1>
-        <p class="lobby-subtitle">Карткова гра для 2–10 гравців / Card game for 2–10 players</p>
+        <div class="lang-toggle-row">
+            <button class="btn-lang" @onclick="L.Toggle">@L["lang.switch"]</button>
+        </div>
+
+        <h1 class="lobby-title">@L["app.title"]</h1>
+        <p class="lobby-subtitle">@L["app.subtitle"]</p>
 
         @if (!string.IsNullOrEmpty(_errorMessage))
         {
@@ -17,28 +23,28 @@
         {
             <div class="lobby-form">
                 <div class="form-group">
-                    <label for="playerName">Ваше ім'я / Your name</label>
+                    <label for="playerName">@L["lobby.yourName"]</label>
                     <input id="playerName" type="text" class="form-control" maxlength="20"
                            @bind="_playerName" @bind:event="oninput"
-                           placeholder="Введіть ім'я..." />
+                           placeholder="@L["lobby.namePlaceholder"]" />
                 </div>
 
                 <div class="lobby-actions">
                     <button class="btn btn-primary btn-lg" @onclick="CreateRoom"
                             disabled="@(!CanAct)">
-                        🎮 Створити кімнату / Create Room
+                        @L["lobby.createRoom"]
                     </button>
 
-                    <div class="divider"><span>або / or</span></div>
+                    <div class="divider"><span>@L["lobby.or"]</span></div>
 
                     <div class="join-row">
                         <input type="text" class="form-control room-code-input" maxlength="6"
                                @bind="_joinCode" @bind:event="oninput"
-                               placeholder="Код кімнати / Room code"
+                               placeholder="@L["lobby.roomCodePlaceholder"]"
                                style="text-transform: uppercase;" />
                         <button class="btn btn-success btn-lg" @onclick="JoinRoom"
                                 disabled="@(!CanJoin)">
-                            🚪 Приєднатися / Join
+                            @L["lobby.join"]
                         </button>
                     </div>
                 </div>
@@ -48,7 +54,7 @@
         {
             <div class="connecting-spinner">
                 <div class="spinner-border text-primary" role="status"></div>
-                <p>З'єднання... / Connecting...</p>
+                <p>@L["lobby.connecting"]</p>
             </div>
         }
     </div>
@@ -68,6 +74,7 @@
     {
         Hub.OnRoomJoined += HandleRoomJoined;
         Hub.OnError += HandleError;
+        L.OnLanguageChanged += () => InvokeAsync(StateHasChanged);
     }
 
     private async Task EnsureConnected()
@@ -85,9 +92,8 @@
             }
             catch (Exception ex)
             {
-                _errorMessage = $"Не вдалося з'єднатися / Connection failed: {ex.Message}";
+                _errorMessage = $"{L["lobby.connectionFailed"]}: {ex.Message}";
                 _isConnecting = false;
-                return;
             }
         }
     }
