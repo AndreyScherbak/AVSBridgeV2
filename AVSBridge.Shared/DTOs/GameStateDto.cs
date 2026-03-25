@@ -18,7 +18,12 @@ public sealed record GameStateDto(
     int PendingDraws,
     int SkipCount,
     int DeckFlipMultiplier,
-    bool IsExtendedMode
+    bool IsExtendedMode,
+    bool AwaitingEightCover,
+    bool AwaitingNineDiscard,
+    bool HasDrawnThisTurn,
+    bool IsDealerCoverPhase,
+    int ExtraTurns
 );
 
 /// <summary>
